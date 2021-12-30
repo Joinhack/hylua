@@ -8,8 +8,10 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
 
-use mlua::
-    {Error as LuaError, String as LuaString, Function, Lua, Table, UserData, UserDataMethods, Value as LuaValue};
+use mlua::{
+    Error as LuaError, Function, Lua, String as LuaString, Table, UserData, UserDataMethods,
+    Value as LuaValue,
+};
 
 pub(crate) struct LuaRequest {
     remote_addr: SocketAddr,
@@ -22,11 +24,12 @@ impl UserData for LuaRequest {
             Ok(req.remote_addr.to_string())
         });
         methods.add_method("get_header", |_lua, req, name: String| {
-            req.inner
+            Ok(req
+                .inner
                 .headers()
                 .get(name)
                 .map(|val| val.to_str().unwrap_or_default().to_string())
-                .ok_or(LuaError::RuntimeError("get header error".into()))
+                .unwrap_or_default())
         });
     }
 }
@@ -81,7 +84,7 @@ impl Service<Request<Body>> for LuaSvr {
             match Self::do_request(lua, lua_req).await {
                 Ok(resp) => Ok(resp),
                 Err(e) => {
-                    error!("{}", e.to_string());
+                    eprintln!("{}", e.to_string());
                     Ok(Response::builder()
                         .status(500)
                         .body(Body::from("Intenal Error"))
@@ -139,13 +142,13 @@ mod tests {
         rt.block_on(async {
             let req = Request::builder()
                 .uri("https://www.rust-lang.org/")
-                .header("User-Agent", "my-awesome-agent/1.0")
+                .header("Host", "my-awesome-agent/1.0")
                 .body(Body::from(""))
                 .unwrap();
             let lua = Lua::new();
             lua.load(chunk! {
                 function do_request(req)
-                    local h = req:get_header("User-Agent")
+                    local h = req:get_header("Host")
                     return {
                         ["header"] = {
                             ["content-type"] = "text/plain;charset=UTF-8"
@@ -153,7 +156,9 @@ mod tests {
                         ["body"] = h,
                     }
                 end
-            }).exec().unwrap();
+            })
+            .exec()
+            .unwrap();
             let lua = Rc::new(lua);
             let l_req = LuaRequest {
                 remote_addr: "127.0.0.1:8080".parse().unwrap(),
@@ -164,7 +169,10 @@ mod tests {
             let resp = LuaSvr::do_request(lua, l_req).await.unwrap();
             assert_eq!(resp.status(), 200);
             let vec: Vec<u8> = to_bytes(resp.into_body()).await.unwrap().to_vec();
-            assert_eq!(std::str::from_utf8(&vec[..]).unwrap(), "my-awesome-agent/1.0");
+            assert_eq!(
+                std::str::from_utf8(&vec[..]).unwrap(),
+                "my-awesome-agent/1.0"
+            );
         });
     }
 }

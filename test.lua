@@ -4,6 +4,6 @@ function do_request(req)
         ["header"] = {
             ["content-type"] = "text/plain;charset=UTF-8"
         },
-        ["body"] = h.."\nbody",
+        ["body"] = "Hello world body",
     }
 end

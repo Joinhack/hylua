@@ -1,12 +1,12 @@
 use crate::MakeLuaSvr;
 use hyper::{self, Body, Request, Response, Server};
 use mlua::Lua;
-use std::future::Future;
 use std::fs::File;
+use std::future::Future;
 use std::io::Read;
-use std::path::Path;
 use std::io::{Error, Result};
 use std::net::SocketAddr;
+use std::path::Path;
 use std::rc::Rc;
 use tokio::{self, runtime};
 
@@ -28,7 +28,7 @@ pub struct HttpServer {
 
 impl HttpServer {
     pub fn new(lua_file: String) -> HttpServer {
-        HttpServer {lua_file}
+        HttpServer { lua_file }
     }
 
     async fn do_request(self: Rc<HttpServer>, req: Request<Body>) -> Result<Response<Body>> {
