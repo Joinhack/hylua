@@ -143,7 +143,7 @@ mod tests {
                 .body(Body::from(""))
                 .unwrap();
             let lua = Lua::new();
-            let _ = lua.load(chunk! {
+            lua.load(chunk! {
                 function do_request(req)
                     local h = req:get_header("User-Agent")
                     return {
