@@ -2,6 +2,9 @@ use crate::MakeLuaSvr;
 use hyper::{self, Body, Request, Response, Server};
 use mlua::Lua;
 use std::future::Future;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use std::io::{Error, Result};
 use std::net::SocketAddr;
 use std::rc::Rc;
@@ -19,11 +22,13 @@ where
     }
 }
 
-pub struct HttpServer {}
+pub struct HttpServer {
+    lua_file: String,
+}
 
 impl HttpServer {
-    pub fn new() -> HttpServer {
-        HttpServer {}
+    pub fn new(lua_file: String) -> HttpServer {
+        HttpServer {lua_file}
     }
 
     async fn do_request(self: Rc<HttpServer>, req: Request<Body>) -> Result<Response<Body>> {
@@ -32,6 +37,14 @@ impl HttpServer {
 
     pub async fn run(self: Rc<HttpServer>) {
         let lua = Rc::new(Lua::new());
+        let path = Path::new(&self.lua_file);
+        if !path.exists() {
+            panic!("Lua file is not exists")
+        }
+        let mut file = File::open(path).unwrap();
+        let mut source = Vec::<u8>::new();
+        let _ = file.read_to_end(&mut source).unwrap();
+        lua.load(&source).exec().unwrap();
         let make_service = MakeLuaSvr::new(lua);
         let addr = "0.0.0.0:8080";
         let addr: SocketAddr = addr.parse().unwrap();
