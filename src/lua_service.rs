@@ -8,7 +8,8 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
 
-use mlua::{Error as LuaError, Function, Lua, Table, UserData, UserDataMethods, Value as LuaValue};
+use mlua::
+    {Error as LuaError, String as LuaString, Function, Lua, Table, UserData, UserDataMethods, Value as LuaValue};
 
 pub(crate) struct LuaRequest {
     remote_addr: SocketAddr,
@@ -41,9 +42,9 @@ impl LuaSvr {
     }
 
     async fn do_request(lua: Rc<Lua>, lua_req: LuaRequest) -> Result<Response<Body>, LuaError> {
-        let handle: Function = lua.named_registry_value("do_request")?;
+        let handle: Function = lua.globals().get("do_request")?;
         let lua_tab = handle.call_async::<_, Table>(lua_req).await?;
-        let body: Vec<u8> = lua_tab.get("body")?;
+        let body: LuaString = lua_tab.get("body")?;
         let status: LuaValue = lua_tab.get("status")?;
         let status: u16 = match status {
             LuaValue::Nil => 200,
@@ -52,7 +53,7 @@ impl LuaSvr {
         };
         let resp = Response::builder()
             .status(status)
-            .body(body.into())
+            .body(body.as_bytes().to_vec().into())
             .unwrap();
         Ok(resp)
     }
@@ -128,7 +129,7 @@ mod tests {
     use std::rc::Rc;
     use tokio::{self, runtime};
 
-    #[cfg(test)]
+    #[test]
     fn test_lua_svr() {
         let rt = runtime::Builder::new_current_thread()
             .enable_io()
@@ -142,16 +143,17 @@ mod tests {
                 .body(Body::from(""))
                 .unwrap();
             let lua = Lua::new();
-            lua.load(chunk! {
-                function do_request()
+            let _ = lua.load(chunk! {
+                function do_request(req)
+                    local h = req:get_header("User-Agent")
                     return {
                         ["header"] = {
                             ["content-type"] = "text/plain;charset=UTF-8"
                         },
-                        ["body"]: "test",
+                        ["body"] = h,
                     }
                 end
-            });
+            }).exec().unwrap();
             let lua = Rc::new(lua);
             let l_req = LuaRequest {
                 remote_addr: "127.0.0.1:8080".parse().unwrap(),
@@ -162,7 +164,7 @@ mod tests {
             let resp = LuaSvr::do_request(lua, l_req).await.unwrap();
             assert_eq!(resp.status(), 200);
             let vec: Vec<u8> = to_bytes(resp.into_body()).await.unwrap().to_vec();
-            assert_eq!(std::str::from_utf8(&vec[..]).unwrap(), "test");
+            assert_eq!(std::str::from_utf8(&vec[..]).unwrap(), "my-awesome-agent/1.0");
         });
     }
 }
