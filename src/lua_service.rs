@@ -84,7 +84,7 @@ impl Service<Request<Body>> for LuaSvr {
             match Self::do_request(lua, lua_req).await {
                 Ok(resp) => Ok(resp),
                 Err(e) => {
-                    eprintln!("{}", e.to_string());
+                    error!("{}", e.to_string());
                     Ok(Response::builder()
                         .status(500)
                         .body(Body::from("Intenal Error"))

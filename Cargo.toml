@@ -10,3 +10,4 @@ tokio = {version = "1", features = ["rt", "net", "process", "fs", "time", "io-ut
 hyper = {version = "0.14", features = ["http1", "runtime", "server", "stream"]}
 mlua = {version = "0.7.1", features = ["lua54", "async", "macros"]}
 log = "0.4"
+env_logger = "0.9"

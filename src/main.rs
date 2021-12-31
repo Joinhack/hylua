@@ -2,13 +2,15 @@ use log::error;
 use std::env;
 use std::rc::Rc;
 use tokio::{self, runtime};
+use env_logger;
 
 use ding_push::*;
 
 fn main() {
+    env_logger::init();
     let mut args = env::args();
     if args.len() < 2 {
-        eprintln!("Usage {} luafile", args.nth(0).unwrap());
+        error!("Usage {} luafile", args.nth(0).unwrap());
         return;
     }
     let lua_file = args.nth(1).unwrap();
